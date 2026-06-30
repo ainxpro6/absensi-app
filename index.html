@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Absensi & Insentif Karyawan</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons (via CDN) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- App Container -->
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-logo">
+        <div class="logo-icon">
+          <i data-lucide="calculator"></i>
+        </div>
+        <div class="logo-text">
+          <h1>Sistem Absensi & Insentif</h1>
+          <p>Siklus Desade (10 Harian)</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Status Badge -->
+        <div id="connection-status" class="status-badge mode-demo" onclick="openSettingsModal()">
+          <span class="status-dot"></span>
+          <span class="status-text">Mode Demo (Penyimpanan Lokal)</span>
+        </div>
+        
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="icon-btn" title="Ubah Tema">
+          <i data-lucide="moon"></i>
+        </button>
+
+        <!-- Settings Button -->
+        <button id="settings-btn" class="icon-btn" onclick="openSettingsModal()" title="Pengaturan API Google Sheets">
+          <i data-lucide="settings"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Dashboard Stats Grid -->
+    <section class="stats-grid">
+      <!-- Card 1: Input Anggaran -->
+      <div class="stat-card budget-card highlight">
+        <div class="card-icon">
+          <i data-lucide="wallet"></i>
+        </div>
+        <div class="card-content">
+          <h3>Anggaran Periode</h3>
+          <div class="budget-input-wrapper">
+            <span class="currency-prefix">Rp</span>
+            <input type="number" id="budget-input" value="300000" min="100000" step="50000">
+            <button id="save-budget-btn" class="btn-save" title="Simpan Anggaran">
+              <i data-lucide="check"></i>
+            </button>
+          </div>
+          <p class="card-desc">Nominal total anggaran berjalan</p>
+        </div>
+      </div>
+
+      <!-- Card 2: Jatah Dasar -->
+      <div class="stat-card">
+        <div class="card-icon">
+          <i data-lucide="dollar-sign"></i>
+        </div>
+        <div class="card-content">
+          <h3>Jatah Dasar</h3>
+          <span class="stat-value" id="stat-jatah-dasar">Rp 15.000</span>
+          <p class="card-desc">FLOOR kelipatan Rp 5.000 terdekat</p>
+        </div>
+      </div>
+
+      <!-- Card 3: Total Pool Sisa Potongan -->
+      <div class="stat-card">
+        <div class="card-icon">
+          <i data-lucide="coins"></i>
+        </div>
+        <div class="card-content">
+          <h3>Pool Sisa Potongan</h3>
+          <span class="stat-value text-warning" id="stat-pool-potongan">Rp 0</span>
+          <p class="card-desc">Total denda yang diredistribusikan</p>
+        </div>
+      </div>
+
+      <!-- Card 4: Karyawan Hadir Penuh -->
+      <div class="stat-card">
+        <div class="card-icon">
+          <i data-lucide="award"></i>
+        </div>
+        <div class="card-content">
+          <h3>Penerima Bonus (0 Absen)</h3>
+          <span class="stat-value text-success" id="stat-penerima-bonus">0 / 17</span>
+          <p class="card-desc" id="stat-bonus-per-orang">Bonus per orang: Rp 0</p>
+        </div>
+      </div>
+
+      <!-- Card 5: Efisiensi Anggaran -->
+      <div class="stat-card">
+        <div class="card-icon">
+          <i data-lucide="shield-check"></i>
+        </div>
+        <div class="card-content">
+          <h3>Efisiensi Anggaran</h3>
+          <span class="stat-value text-info" id="stat-efisiensi">Rp 45.000</span>
+          <p class="card-desc">Selisih pembulatan & sisa pool</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Workspace -->
+    <main class="main-workspace">
+      <!-- Workspace Header -->
+      <div class="workspace-header">
+        <div class="search-wrapper">
+          <i data-lucide="search" class="search-icon"></i>
+          <input type="text" id="search-input" placeholder="Cari nama karyawan...">
+        </div>
+        
+        <div class="workspace-actions">
+          <button id="save-changes-btn" class="btn btn-success" disabled style="display: none;">
+            <i data-lucide="cloud-upload"></i> Simpan ke Sheets <span id="unsaved-count" class="badge">0</span>
+          </button>
+          <button id="reset-attendance-btn" class="btn btn-secondary">
+            <i data-lucide="rotate-ccw"></i> Reset Absensi
+          </button>
+          <button id="export-pdf-btn" class="btn btn-primary">
+            <i data-lucide="file-down"></i> Cetak Laporan / PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="table-container">
+        <table class="attendance-table" id="attendance-table">
+          <thead>
+            <tr>
+              <th class="col-name">Nama Karyawan</th>
+              <th class="col-day">H1</th>
+              <th class="col-day">H2</th>
+              <th class="col-day">H3</th>
+              <th class="col-day">H4</th>
+              <th class="col-day">H5</th>
+              <th class="col-day">H6</th>
+              <th class="col-day">H7</th>
+              <th class="col-day">H8</th>
+              <th class="col-day">H9</th>
+              <th class="col-day">H10</th>
+              <th class="col-summary">Total Absen</th>
+              <th class="col-summary">Jatah Dasar</th>
+              <th class="col-summary">Potongan</th>
+              <th class="col-summary">Bonus</th>
+              <th class="col-summary text-right">Total Akhir</th>
+            </tr>
+          </thead>
+          <tbody id="attendance-rows">
+            <!-- Rows will be dynamically rendered via app.js -->
+            <tr>
+              <td colspan="16" class="loading-state">
+                <div class="spinner"></div>
+                <p>Memuat data karyawan...</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="app-footer-info">
+      <p>&copy; 2026 Sistem Manajemen Absensi & Kalkulasi Insentif Karyawan. Berbasis Spreadsheet-as-a-Database.</p>
+    </footer>
+  </div>
+
+  <!-- Settings Modal (GAS Configuration) -->
+  <div id="settings-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2><i data-lucide="settings"></i> Pengaturan Google Sheets API</h2>
+        <button class="modal-close-btn" onclick="closeSettingsModal()">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Aplikasi ini dapat disinkronkan secara real-time ke lembar Google Sheets Anda menggunakan Google Apps Script.</p>
+        
+        <div class="input-group">
+          <label for="gas-url-input">Google Apps Script Web App URL</label>
+          <input type="url" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec">
+          <p class="input-help">Masukkan URL Web App yang Anda dapatkan saat melakukan deploy di Apps Script Google Sheets Anda.</p>
+        </div>
+
+        <div class="settings-actions">
+          <button id="disconnect-btn" class="btn btn-danger" onclick="disconnectGoogleSheets()">Putuskan Koneksi (Mode Demo)</button>
+          <div class="right-buttons">
+            <button class="btn btn-secondary" onclick="closeSettingsModal()">Batal</button>
+            <button id="save-settings-btn" class="btn btn-primary" onclick="saveSettings()">Simpan & Hubungkan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Print Slip Template (Hidden in Normal View) -->
+  <div id="print-slip-template" class="print-only">
+    <!-- Rendered dynamically during printing -->
+  </div>
+
+  <!-- Custom JS -->
+  <script src="app.js"></script>
+</body>
+</html>
