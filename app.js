@@ -1,4 +1,122 @@
-// State Management
+// ==================== UTILITY FUNCTIONS ====================
+
+/** Debounce utility — delays function execution until after `wait` ms of inactivity */
+function debounce(fn, wait) {
+  let timerId = null;
+  return function (...args) {
+    clearTimeout(timerId);
+    timerId = setTimeout(() => fn.apply(this, args), wait);
+  };
+}
+
+/** Cached Intl.NumberFormat instance — reused across all formatRupiah calls */
+const rupiahFormatter = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0
+});
+
+/** Format number to Rupiah string using cached formatter */
+function formatRupiah(num) {
+  return rupiahFormatter.format(num);
+}
+
+// ==================== TOAST NOTIFICATION SYSTEM ====================
+
+/** 
+ * Show a toast notification instead of alert().
+ * @param {string} message - Text to display
+ * @param {'success'|'error'|'warning'|'info'} type - Toast type
+ * @param {number} duration - Duration in ms (default 3500)
+ */
+function showToast(message, type = "info", duration = 3500) {
+  // Create container if it doesn't exist
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+
+  const iconMap = {
+    success: "check-circle",
+    error: "alert-circle",
+    warning: "alert-triangle",
+    info: "info"
+  };
+
+  toast.innerHTML = `
+    <i data-lucide="${iconMap[type] || 'info'}" class="toast-icon"></i>
+    <span class="toast-message">${message}</span>
+    <button class="toast-close" onclick="this.parentElement.remove()">
+      <i data-lucide="x"></i>
+    </button>
+  `;
+
+  container.appendChild(toast);
+  lucide.createIcons({ nodes: [toast] });
+
+  // Trigger entrance animation
+  requestAnimationFrame(() => toast.classList.add("toast-visible"));
+
+  // Auto-dismiss
+  setTimeout(() => {
+    toast.classList.remove("toast-visible");
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+    // Fallback removal if transitionend doesn't fire
+    setTimeout(() => toast.remove(), 400);
+  }, duration);
+}
+
+/**
+ * Custom confirm dialog (replaces window.confirm).
+ * Returns a Promise that resolves to true/false.
+ */
+function showConfirm(message, title = "Konfirmasi") {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "confirm-overlay active";
+    overlay.innerHTML = `
+      <div class="confirm-card">
+        <div class="confirm-header">
+          <i data-lucide="alert-triangle"></i>
+          <h3>${title}</h3>
+        </div>
+        <p class="confirm-message">${message}</p>
+        <div class="confirm-actions">
+          <button class="btn btn-secondary confirm-cancel">Batal</button>
+          <button class="btn btn-danger confirm-ok">Ya, Lanjutkan</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    lucide.createIcons({ nodes: [overlay] });
+
+    const cleanup = (result) => {
+      overlay.classList.remove("active");
+      overlay.addEventListener("transitionend", () => overlay.remove(), { once: true });
+      setTimeout(() => overlay.remove(), 400);
+      resolve(result);
+    };
+
+    overlay.querySelector(".confirm-cancel").addEventListener("click", () => cleanup(false));
+    overlay.querySelector(".confirm-ok").addEventListener("click", () => cleanup(true));
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) cleanup(false);
+    });
+
+    // Focus the cancel button by default (safer)
+    overlay.querySelector(".confirm-cancel").focus();
+  });
+}
+
+// ==================== STATE MANAGEMENT ====================
+
 let appState = {
   budget: 300000,
   totalEmployees: 17,
@@ -26,7 +144,8 @@ let pendingUpdates = {
   attendanceUpdates: []
 };
 
-// DOM Elements
+// ==================== DOM ELEMENTS ====================
+
 const budgetInput = document.getElementById("budget-input");
 const saveBudgetBtn = document.getElementById("save-budget-btn");
 const saveChangesBtn = document.getElementById("save-changes-btn");
@@ -46,7 +165,8 @@ const settingsModal = document.getElementById("settings-modal");
 const gasUrlInput = document.getElementById("gas-url-input");
 const printSlipTemplate = document.getElementById("print-slip-template");
 
-// Initialize Application
+// ==================== INITIALIZATION ====================
+
 document.addEventListener("DOMContentLoaded", () => {
   // Initialize Theme
   const savedTheme = localStorage.getItem("theme") || "light";
@@ -71,21 +191,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   budgetInput.addEventListener("change", saveBudget);
-  budgetInput.addEventListener("blur", saveBudget);
   saveBudgetBtn.addEventListener("click", saveBudget);
   saveChangesBtn.addEventListener("click", syncPendingChanges);
   
-  searchInput.addEventListener("input", filterEmployees);
+  // Debounced search (300ms delay)
+  searchInput.addEventListener("input", debounce(() => {
+    renderGrid(searchInput.value);
+  }, 300));
+  
   resetBtn.addEventListener("click", resetAllAttendance);
   exportPdfBtn.addEventListener("click", printSlips);
 });
 
-// Load data based on current mode
+// ==================== DATA LOADING ====================
+
 async function initData() {
   updateConnectionStatusUI();
   
   if (isDemoMode) {
-    // Load from LocalStorage or initialize with defaults
     const localData = localStorage.getItem("demo_absensi_data");
     if (localData) {
       try {
@@ -103,13 +226,12 @@ async function initData() {
   }
 }
 
-// Set default state for Local Demo Mode
 function initializeLocalDemoState() {
   appState.budget = 300000;
   appState.totalEmployees = DEFAULT_EMPLOYEES.length;
   appState.employees = DEFAULT_EMPLOYEES.map(name => ({
     name: name,
-    attendance: Array(10).fill(false), // 10 hari hadir (false = hadir)
+    attendance: Array(10).fill(false),
     totalAbsen: 0,
     jatahDasar: 0,
     potongan: 0,
@@ -118,15 +240,16 @@ function initializeLocalDemoState() {
   }));
 }
 
-// Formula Calculation Engine (Sesuai Logika Konfirmasi User)
+// ==================== CALCULATION ENGINE ====================
+
 function calculateState() {
   const budget = appState.budget;
   const numEmployees = appState.totalEmployees;
   
-  // 1. Jatah Dasar (M2) = FLOOR(Budget / 17, 5000)
+  // 1. Jatah Dasar = FLOOR(Budget / 17, 5000)
   const jatahDasar = Math.floor((budget / numEmployees) / 5000) * 5000;
   
-  // 2. Hitung absen dan potongan untuk karyawan tidak masuk penuh (1-10 hari absen)
+  // 2. Hitung absen dan potongan
   let totalBayarAbsen = 0;
   let totalPool = 0;
   
@@ -149,13 +272,13 @@ function calculateState() {
     }
   });
 
-  // 3. Hitung jumlah karyawan hadir penuh (0 absen)
+  // 3. Hitung karyawan hadir penuh
   const rajinEmployees = appState.employees.filter(emp => emp.totalAbsen === 0);
   const totalRajin = rajinEmployees.length;
   appState.totalRajin = totalRajin;
   appState.totalPool = totalPool;
 
-  // 4. Kalkulasi sisa anggaran dan bagi rata ke karyawan rajin (di-floor ke kelipatan 5000)
+  // 4. Redistribusi ke karyawan rajin
   if (totalRajin > 0) {
     const sisaAnggaran = budget - totalBayarAbsen;
     const totalAkhirRajin = Math.floor((sisaAnggaran / totalRajin) / 5000) * 5000;
@@ -168,7 +291,6 @@ function calculateState() {
       }
     });
   } else {
-    // Jika tidak ada karyawan rajin, sisa jatah dasar (potongan) disimpan perusahaan
     appState.employees.forEach(emp => {
       if (emp.totalAbsen === 0) {
         emp.potongan = 0;
@@ -178,32 +300,36 @@ function calculateState() {
     });
   }
 
-  // 5. Hitung pengeluaran total riil & efisiensi anggaran perusahaan
+  // 5. Efisiensi anggaran
   const totalPaid = appState.employees.reduce((sum, emp) => sum + emp.totalAkhir, 0);
   appState.efisiensi = budget - totalPaid;
 
-  // Save changes locally in demo mode
   if (isDemoMode) {
     localStorage.setItem("demo_absensi_data", JSON.stringify(appState));
   }
 }
 
-// Render Dashboard UI
+// ==================== RENDERING ====================
+
+/**
+ * Full render of the entire grid. Used for initial load, filter changes, and full resets.
+ */
 function renderGrid(filterText = "") {
   // Update Sync Button
   updateSyncButtonState();
 
-  // Update Stats Cards
+  // Update Stats Cards (with pulse animation on value change)
   if (document.activeElement !== budgetInput) {
     budgetInput.value = appState.budget;
   }
-  statJatahDasar.textContent = formatRupiah(appState.employees[0]?.jatahDasar || 0);
-  statPoolPotongan.textContent = formatRupiah(appState.totalPool);
+  
+  animateStatUpdate(statJatahDasar, formatRupiah(appState.employees[0]?.jatahDasar || 0));
+  animateStatUpdate(statPoolPotongan, formatRupiah(appState.totalPool));
   statPenerimaBonus.textContent = `${appState.totalRajin} / ${appState.totalEmployees}`;
   
   const bonusPerOrang = appState.totalRajin > 0 ? Math.floor(appState.totalPool / appState.totalRajin) : 0;
   statBonusPerOrang.textContent = `Bonus per orang: ${formatRupiah(bonusPerOrang)}`;
-  statEfisiensi.textContent = formatRupiah(appState.efisiensi);
+  animateStatUpdate(statEfisiensi, formatRupiah(appState.efisiensi));
 
   // Render Rows
   attendanceRows.innerHTML = "";
@@ -223,90 +349,188 @@ function renderGrid(filterText = "") {
     return;
   }
 
+  const fragment = document.createDocumentFragment();
+  
   filtered.forEach(emp => {
-    // Find index in global array
     const globalIdx = appState.employees.findIndex(e => e.name === emp.name);
-    
-    // Row classes
-    let rowClass = "";
-    if (emp.totalAbsen === 0) rowClass = "full-attendance";
-    if (emp.totalAbsen === 10) rowClass = "full-absent";
-
-    const tr = document.createElement("tr");
-    if (rowClass) tr.className = rowClass;
-
-    // Checkboxes columns B-K (1-10)
-    let checkboxesHtml = "";
-    for (let day = 0; day < 10; day++) {
-      const isChecked = emp.attendance[day];
-      checkboxesHtml += `
-        <td class="checkbox-cell">
-          <div class="custom-checkbox ${isChecked ? 'checked' : ''}" 
-               onclick="toggleAttendanceCheckbox(${globalIdx}, ${day})"
-               title="Hari ${day + 1} - ${emp.name}">
-          </div>
-        </td>
-      `;
-    }
-
-    tr.innerHTML = `
-      <td class="col-name">${emp.name}</td>
-      ${checkboxesHtml}
-      <td class="col-summary">${emp.totalAbsen} Hari</td>
-      <td class="col-summary">${formatRupiah(emp.jatahDasar)}</td>
-      <td class="col-summary text-danger">${emp.potongan > 0 ? '-' + formatRupiah(emp.potongan) : 'Rp 0'}</td>
-      <td class="col-summary text-success">${emp.bonus > 0 ? '+' + formatRupiah(emp.bonus) : 'Rp 0'}</td>
-      <td class="col-summary text-right ${emp.totalAbsen === 0 ? 'text-success' : 'text-danger'}">
-        ${formatRupiah(emp.totalAkhir)}
-      </td>
-    `;
-    
-    attendanceRows.appendChild(tr);
+    const tr = buildEmployeeRow(emp, globalIdx);
+    fragment.appendChild(tr);
   });
+  
+  attendanceRows.appendChild(fragment);
 }
 
-// User Actions
-async function toggleAttendanceCheckbox(empIdx, dayIdx) {
+/**
+ * Build a single employee table row element.
+ */
+function buildEmployeeRow(emp, globalIdx) {
+  let rowClass = "";
+  if (emp.totalAbsen === 0) rowClass = "full-attendance";
+  if (emp.totalAbsen === 10) rowClass = "full-absent";
+
+  const tr = document.createElement("tr");
+  tr.setAttribute("data-emp-index", globalIdx);
+  if (rowClass) tr.className = rowClass;
+
+  let checkboxesHtml = "";
+  for (let day = 0; day < 10; day++) {
+    const isChecked = emp.attendance[day];
+    checkboxesHtml += `
+      <td class="checkbox-cell">
+        <div class="custom-checkbox ${isChecked ? 'checked' : ''}" 
+             role="checkbox"
+             aria-checked="${isChecked}"
+             aria-label="Hari ${day + 1} - ${emp.name}"
+             tabindex="0"
+             data-emp="${globalIdx}"
+             data-day="${day}">
+        </div>
+      </td>
+    `;
+  }
+
+  tr.innerHTML = `
+    <td class="col-name">${emp.name}</td>
+    ${checkboxesHtml}
+    <td class="col-summary">${emp.totalAbsen} Hari</td>
+    <td class="col-summary">${formatRupiah(emp.jatahDasar)}</td>
+    <td class="col-summary text-danger">${emp.potongan > 0 ? '-' + formatRupiah(emp.potongan) : 'Rp 0'}</td>
+    <td class="col-summary text-success">${emp.bonus > 0 ? '+' + formatRupiah(emp.bonus) : 'Rp 0'}</td>
+    <td class="col-summary text-right ${emp.totalAbsen === 0 ? 'text-success' : 'text-danger'}">
+      ${formatRupiah(emp.totalAkhir)}
+    </td>
+  `;
+  
+  return tr;
+}
+
+/**
+ * Targeted row update — only re-renders the specific employee row 
+ * instead of rebuilding the entire table.
+ */
+function updateSingleRow(empIdx) {
+  const emp = appState.employees[empIdx];
+  const existingRow = attendanceRows.querySelector(`tr[data-emp-index="${empIdx}"]`);
+  
+  if (!existingRow) {
+    // Row not visible (filtered out), skip
+    return;
+  }
+  
+  const newRow = buildEmployeeRow(emp, empIdx);
+  existingRow.replaceWith(newRow);
+}
+
+/**
+ * Animate stat value update with a subtle pulse.
+ */
+function animateStatUpdate(el, newValue) {
+  if (el.textContent !== newValue) {
+    el.textContent = newValue;
+    el.classList.add("stat-pulse");
+    el.addEventListener("animationend", () => {
+      el.classList.remove("stat-pulse");
+    }, { once: true });
+  }
+}
+
+// ==================== USER ACTIONS ====================
+
+// Use event delegation on the table body for checkbox clicks + keyboard
+attendanceRows.addEventListener("click", (e) => {
+  const checkbox = e.target.closest(".custom-checkbox");
+  if (checkbox) {
+    const empIdx = parseInt(checkbox.dataset.emp, 10);
+    const dayIdx = parseInt(checkbox.dataset.day, 10);
+    toggleAttendanceCheckbox(empIdx, dayIdx);
+  }
+});
+
+attendanceRows.addEventListener("keydown", (e) => {
+  if (e.key === " " || e.key === "Enter") {
+    const checkbox = e.target.closest(".custom-checkbox");
+    if (checkbox) {
+      e.preventDefault();
+      const empIdx = parseInt(checkbox.dataset.emp, 10);
+      const dayIdx = parseInt(checkbox.dataset.day, 10);
+      toggleAttendanceCheckbox(empIdx, dayIdx);
+    }
+  }
+});
+
+function toggleAttendanceCheckbox(empIdx, dayIdx) {
   const currentVal = appState.employees[empIdx].attendance[dayIdx];
   const newVal = !currentVal;
 
   // Optimistic UI update
   appState.employees[empIdx].attendance[dayIdx] = newVal;
   calculateState();
-  renderGrid(searchInput.value);
+  
+  // Targeted update — only re-render the changed row + stats
+  updateStatsCards();
+  updateSingleRow(empIdx);
+  
+  // Also update other rows if their bonus/totalAkhir might have changed
+  // (toggling one employee's attendance affects all "rajin" employees' bonus)
+  appState.employees.forEach((emp, idx) => {
+    if (idx !== empIdx) {
+      updateSingleRow(idx);
+    }
+  });
 
   if (!isDemoMode) {
-    // Cari update yang sudah ada di antrean
-    const existingIdx = pendingUpdates.attendanceUpdates.findIndex(
-      u => u.employeeIndex === empIdx && u.dayIndex === dayIdx
-    );
-    
-    const originalVal = syncedEmployees[empIdx] ? syncedEmployees[empIdx].attendance[dayIdx] : false;
-
-    if (newVal !== originalVal) {
-      if (existingIdx !== -1) {
-        pendingUpdates.attendanceUpdates[existingIdx].value = newVal;
-      } else {
-        pendingUpdates.attendanceUpdates.push({
-          employeeIndex: empIdx,
-          dayIndex: dayIdx,
-          value: newVal
-        });
-      }
-    } else {
-      // Jika kembali ke nilai asli, hapus dari antrean
-      if (existingIdx !== -1) {
-        pendingUpdates.attendanceUpdates.splice(existingIdx, 1);
-      }
-    }
-    updateSyncButtonState();
+    trackPendingChange(empIdx, dayIdx, newVal);
   }
+}
+
+function trackPendingChange(empIdx, dayIdx, newVal) {
+  const existingIdx = pendingUpdates.attendanceUpdates.findIndex(
+    u => u.employeeIndex === empIdx && u.dayIndex === dayIdx
+  );
+  
+  const originalVal = syncedEmployees[empIdx] ? syncedEmployees[empIdx].attendance[dayIdx] : false;
+
+  if (newVal !== originalVal) {
+    if (existingIdx !== -1) {
+      pendingUpdates.attendanceUpdates[existingIdx].value = newVal;
+    } else {
+      pendingUpdates.attendanceUpdates.push({
+        employeeIndex: empIdx,
+        dayIndex: dayIdx,
+        value: newVal
+      });
+    }
+  } else {
+    if (existingIdx !== -1) {
+      pendingUpdates.attendanceUpdates.splice(existingIdx, 1);
+    }
+  }
+  updateSyncButtonState();
+}
+
+/**
+ * Update only the stats cards without re-rendering the table.
+ */
+function updateStatsCards() {
+  if (document.activeElement !== budgetInput) {
+    budgetInput.value = appState.budget;
+  }
+  
+  animateStatUpdate(statJatahDasar, formatRupiah(appState.employees[0]?.jatahDasar || 0));
+  animateStatUpdate(statPoolPotongan, formatRupiah(appState.totalPool));
+  statPenerimaBonus.textContent = `${appState.totalRajin} / ${appState.totalEmployees}`;
+  
+  const bonusPerOrang = appState.totalRajin > 0 ? Math.floor(appState.totalPool / appState.totalRajin) : 0;
+  statBonusPerOrang.textContent = `Bonus per orang: ${formatRupiah(bonusPerOrang)}`;
+  animateStatUpdate(statEfisiensi, formatRupiah(appState.efisiensi));
+  
+  updateSyncButtonState();
 }
 
 async function saveBudget() {
   const val = Number(budgetInput.value);
   if (isNaN(val) || val < 100000) {
-    alert("Masukkan nominal anggaran minimal Rp 100.000");
+    showToast("Masukkan nominal anggaran minimal Rp 100.000", "warning");
     budgetInput.value = appState.budget;
     return;
   }
@@ -316,6 +540,7 @@ async function saveBudget() {
   appState.budget = val;
   calculateState();
   renderGrid(searchInput.value);
+  showToast("Anggaran diperbarui: " + formatRupiah(val), "success", 2000);
 
   if (!isDemoMode) {
     if (val !== syncedBudget) {
@@ -328,13 +553,18 @@ async function saveBudget() {
 }
 
 async function resetAllAttendance() {
-  if (!confirm("Apakah Anda yakin ingin me-reset seluruh absensi periode desade ini?")) return;
+  const confirmed = await showConfirm(
+    "Apakah Anda yakin ingin me-reset seluruh absensi periode desade ini? Semua data kehadiran akan dikosongkan.",
+    "Reset Absensi"
+  );
+  if (!confirmed) return;
 
   appState.employees.forEach(emp => {
     emp.attendance = Array(10).fill(false);
   });
   calculateState();
   renderGrid(searchInput.value);
+  showToast("Seluruh absensi berhasil di-reset", "success");
 
   if (!isDemoMode) {
     showTableLoading(true);
@@ -353,26 +583,23 @@ async function resetAllAttendance() {
       const result = await postToSheets({ attendanceUpdates: updates });
       if (result && result.status === "success") {
         appState = result.data;
-        // Sinkronisasi berhasil, reset baseline
         syncedBudget = appState.budget;
         syncedEmployees = JSON.parse(JSON.stringify(appState.employees));
         pendingUpdates.budget = null;
         pendingUpdates.attendanceUpdates = [];
         updateSyncButtonState();
+        showToast("Data berhasil disinkronkan ke Google Sheets", "success");
       }
     } catch (e) {
-      alert("Gagal me-reset absensi di Google Sheets.");
+      showToast("Gagal me-reset absensi di Google Sheets", "error");
     } finally {
       showTableLoading(false);
     }
   }
 }
 
-function filterEmployees() {
-  renderGrid(searchInput.value);
-}
+// ==================== GOOGLE SHEETS SYNC API ====================
 
-// Google Sheets Sync API
 async function fetchFromSheets() {
   showTableLoading(true);
   try {
@@ -381,11 +608,9 @@ async function fetchFromSheets() {
     if (json.status === "success") {
       appState = json.data;
       
-      // Simpan copy data sinkronisasi awal
       syncedBudget = appState.budget;
       syncedEmployees = JSON.parse(JSON.stringify(appState.employees));
       
-      // Reset status pending
       pendingUpdates.budget = null;
       pendingUpdates.attendanceUpdates = [];
       
@@ -393,12 +618,13 @@ async function fetchFromSheets() {
       updateConnectionStatusUI();
       updateSyncButtonState();
       renderGrid();
+      showToast("Data berhasil dimuat dari Google Sheets", "success", 2000);
     } else {
-      throw new Error(json.message);
+      throw new Error(json.message || "Unknown error");
     }
   } catch (err) {
     console.error("Fetch error:", err);
-    alert("Gagal memuat data dari Google Sheets. Periksa URL Apps Script Anda.");
+    showToast("Gagal memuat data dari Google Sheets. Periksa URL Apps Script Anda.", "error", 5000);
     isDemoMode = true;
     updateConnectionStatusUI();
     initData();
@@ -413,7 +639,7 @@ async function postToSheets(data) {
       method: "POST",
       mode: "cors",
       headers: {
-        "Content-Type": "text/plain;charset=utf-8" // Bypass preflight pre-cors
+        "Content-Type": "text/plain;charset=utf-8"
       },
       body: JSON.stringify(data)
     });
@@ -424,7 +650,8 @@ async function postToSheets(data) {
   }
 }
 
-// Settings Modal Actions
+// ==================== SETTINGS MODAL ====================
+
 window.openSettingsModal = function() {
   gasUrlInput.value = gasUrl;
   settingsModal.classList.add("active");
@@ -437,13 +664,12 @@ window.closeSettingsModal = function() {
 window.saveSettings = async function() {
   const url = gasUrlInput.value.trim();
   if (!url) {
-    alert("Masukkan URL yang valid!");
+    showToast("Masukkan URL yang valid!", "warning");
     return;
   }
 
-  // Pre-validate Google Script URL
   if (!url.startsWith("https://script.google.com/")) {
-    alert("Format URL salah. URL harus diawali dengan https://script.google.com/macros/s/");
+    showToast("Format URL salah. URL harus diawali dengan https://script.google.com/macros/s/", "error");
     return;
   }
 
@@ -451,21 +677,28 @@ window.saveSettings = async function() {
   localStorage.setItem("gas_url", url);
   isDemoMode = false;
   closeSettingsModal();
+  showToast("Menghubungkan ke Google Sheets...", "info", 2000);
   
   await initData();
 };
 
-window.disconnectGoogleSheets = function() {
-  if (confirm("Apakah Anda ingin memutuskan koneksi dari Google Sheets dan kembali ke penyimpanan lokal?")) {
+window.disconnectGoogleSheets = async function() {
+  const confirmed = await showConfirm(
+    "Apakah Anda ingin memutuskan koneksi dari Google Sheets dan kembali ke penyimpanan lokal?",
+    "Putuskan Koneksi"
+  );
+  if (confirmed) {
     gasUrl = "";
     localStorage.removeItem("gas_url");
     isDemoMode = true;
     closeSettingsModal();
+    showToast("Koneksi Google Sheets diputuskan. Beralih ke penyimpanan lokal.", "warning");
     initData();
   }
 };
 
-// UI Helpers
+// ==================== UI HELPERS ====================
+
 function showTableLoading(show) {
   if (show) {
     attendanceRows.innerHTML = `
@@ -489,16 +722,8 @@ function updateConnectionStatusUI() {
   }
 }
 
-function formatRupiah(num) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(num);
-}
+// ==================== THEME TOGGLE ====================
 
-// Theme Toggle
 function toggleTheme() {
   const isDark = document.body.classList.toggle("dark-theme");
   localStorage.setItem("theme", isDark ? "dark" : "light");
@@ -512,20 +737,26 @@ function updateThemeIcon(isDark) {
   } else {
     icon.setAttribute("data-lucide", "moon");
   }
-  lucide.createIcons();
+  // Scoped icon refresh — only re-render the changed icon, not the entire DOM
+  lucide.createIcons({ nodes: [icon] });
 }
 
-// Print & PDF Slips Generator
+// ==================== PRINT & PDF ====================
+
 function printSlips() {
   printSlipTemplate.innerHTML = "";
   
   const bonusPerOrang = appState.totalRajin > 0 ? Math.floor(appState.totalPool / appState.totalRajin) : 0;
+  const printDate = new Date().toLocaleDateString("id-ID", {
+    day: "numeric", month: "long", year: "numeric"
+  });
+  
+  const fragment = document.createDocumentFragment();
   
   appState.employees.forEach(emp => {
     const slipDiv = document.createElement("div");
     slipDiv.className = "print-slip";
     
-    // Status text for slip
     let statusText = "Hadir Penuh (0 Absen)";
     if (emp.totalAbsen === 10) statusText = "Absen Penuh (10 Hari)";
     else if (emp.totalAbsen > 0) statusText = `Absen ${emp.totalAbsen} Hari`;
@@ -534,6 +765,7 @@ function printSlips() {
       <div class="print-slip-header">
         <h2>SLIP INSENTIF KARYAWAN</h2>
         <p>Siklus Desade (10 Hari Kerja)</p>
+        <p class="print-date">Dicetak: ${printDate}</p>
       </div>
       
       <div class="print-slip-row">
@@ -566,28 +798,29 @@ function printSlips() {
         <span>${formatRupiah(emp.totalAkhir)}</span>
       </div>
       
-      <div style="margin-top: 3rem; display: flex; justify-content: space-between; text-align: center; font-size: 0.8rem;">
+      <div class="print-slip-signatures">
         <div>
           <p>Disetujui Oleh,</p>
-          <div style="margin-top: 3rem; border-top: 1px solid #000; width: 150px;"></div>
-          <p style="margin-top: 0.25rem;">Manajemen / Owner</p>
+          <div class="signature-line"></div>
+          <p>Manajemen / Owner</p>
         </div>
         <div>
           <p>Diterima Oleh,</p>
-          <div style="margin-top: 3rem; border-top: 1px solid #000; width: 150px;"></div>
-          <p style="margin-top: 0.25rem;">${emp.name}</p>
+          <div class="signature-line"></div>
+          <p>${emp.name}</p>
         </div>
       </div>
     `;
     
-    printSlipTemplate.appendChild(slipDiv);
+    fragment.appendChild(slipDiv);
   });
   
-  // Open Browser Print Dialog
+  printSlipTemplate.appendChild(fragment);
   window.print();
 }
 
-// Sinkronisasi dan Status Perubahan (Batching)
+// ==================== SYNC BUTTON STATE ====================
+
 function updateSyncButtonState() {
   if (isDemoMode) {
     saveChangesBtn.style.display = "none";
@@ -603,10 +836,10 @@ function updateSyncButtonState() {
 
   if (totalUnsaved > 0) {
     saveChangesBtn.removeAttribute("disabled");
-    saveChangesBtn.style.animation = "pulse-btn 2s infinite";
+    saveChangesBtn.classList.add("has-changes");
   } else {
     saveChangesBtn.setAttribute("disabled", "true");
-    saveChangesBtn.style.animation = "none";
+    saveChangesBtn.classList.remove("has-changes");
   }
 }
 
@@ -621,7 +854,7 @@ async function syncPendingChanges() {
 
   showTableLoading(true);
   saveChangesBtn.setAttribute("disabled", "true");
-  saveChangesBtn.style.animation = "none";
+  saveChangesBtn.classList.remove("has-changes");
 
   const payload = {};
   if (pendingUpdates.budget !== null) {
@@ -636,22 +869,21 @@ async function syncPendingChanges() {
     if (result && result.status === "success") {
       appState = result.data;
       
-      // Update baseline sinkronisasi
       syncedBudget = appState.budget;
       syncedEmployees = JSON.parse(JSON.stringify(appState.employees));
       
-      // Reset pending
       pendingUpdates.budget = null;
       pendingUpdates.attendanceUpdates = [];
       
       updateSyncButtonState();
       renderGrid(searchInput.value);
+      showToast(`${totalUnsaved} perubahan berhasil disinkronkan`, "success");
     } else {
       throw new Error(result.message || "Gagal sinkronisasi");
     }
   } catch (e) {
-    alert("Gagal sinkronisasi data ke Google Sheets: " + e.message);
-    updateSyncButtonState(); // Aktifkan kembali agar bisa coba lagi
-    renderGrid(searchInput.value); // Kembalikan grid dari loading
+    showToast("Gagal sinkronisasi data ke Google Sheets: " + e.message, "error", 5000);
+    updateSyncButtonState();
+    renderGrid(searchInput.value);
   }
 }

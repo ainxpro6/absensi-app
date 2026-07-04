@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Dashboard Sistem Manajemen Absensi dan Kalkulasi Insentif Karyawan berbasis Spreadsheet. Siklus Desade 10 Harian dengan metode Pooling & Redistribusi Berkeadilan.">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="color-scheme" content="light dark">
   <title>Dashboard Absensi & Insentif Karyawan</title>
-  <!-- Google Fonts -->
+  <!-- Google Fonts (preconnect + preload for faster LCP) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Lucide Icons (via CDN) -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Lucide Icons (pinned version for stability) -->
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.js"></script>
   <!-- Custom CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
@@ -32,25 +35,25 @@
 
       <div class="header-actions">
         <!-- Status Badge -->
-        <div id="connection-status" class="status-badge mode-demo" onclick="openSettingsModal()">
+        <div id="connection-status" class="status-badge mode-demo" onclick="openSettingsModal()" role="status" aria-label="Status koneksi">
           <span class="status-dot"></span>
           <span class="status-text">Mode Demo (Penyimpanan Lokal)</span>
         </div>
         
         <!-- Theme Toggle -->
-        <button id="theme-toggle" class="icon-btn" title="Ubah Tema">
+        <button id="theme-toggle" class="icon-btn" title="Ubah Tema" aria-label="Ubah tema gelap/terang">
           <i data-lucide="moon"></i>
         </button>
 
         <!-- Settings Button -->
-        <button id="settings-btn" class="icon-btn" onclick="openSettingsModal()" title="Pengaturan API Google Sheets">
+        <button id="settings-btn" class="icon-btn" onclick="openSettingsModal()" title="Pengaturan API Google Sheets" aria-label="Buka pengaturan Google Sheets">
           <i data-lucide="settings"></i>
         </button>
       </div>
     </header>
 
     <!-- Dashboard Stats Grid -->
-    <section class="stats-grid">
+    <section class="stats-grid" aria-label="Ringkasan statistik">
       <!-- Card 1: Input Anggaran -->
       <div class="stat-card budget-card highlight">
         <div class="card-icon">
@@ -60,8 +63,8 @@
           <h3>Anggaran Periode</h3>
           <div class="budget-input-wrapper">
             <span class="currency-prefix">Rp</span>
-            <input type="number" id="budget-input" value="300000" min="100000" step="50000">
-            <button id="save-budget-btn" class="btn-save" title="Simpan Anggaran">
+            <input type="number" id="budget-input" value="300000" min="100000" step="50000" aria-label="Nominal anggaran periode">
+            <button id="save-budget-btn" class="btn-save" title="Simpan Anggaran" aria-label="Simpan anggaran">
               <i data-lucide="check"></i>
             </button>
           </div>
@@ -124,24 +127,24 @@
       <div class="workspace-header">
         <div class="search-wrapper">
           <i data-lucide="search" class="search-icon"></i>
-          <input type="text" id="search-input" placeholder="Cari nama karyawan...">
+          <input type="text" id="search-input" placeholder="Cari nama karyawan..." aria-label="Cari nama karyawan">
         </div>
         
         <div class="workspace-actions">
-          <button id="save-changes-btn" class="btn btn-success" disabled style="display: none;">
+          <button id="save-changes-btn" class="btn btn-success" disabled style="display: none;" aria-label="Simpan perubahan ke Google Sheets">
             <i data-lucide="cloud-upload"></i> Simpan ke Sheets <span id="unsaved-count" class="badge">0</span>
           </button>
-          <button id="reset-attendance-btn" class="btn btn-secondary">
+          <button id="reset-attendance-btn" class="btn btn-secondary" aria-label="Reset seluruh absensi">
             <i data-lucide="rotate-ccw"></i> Reset Absensi
           </button>
-          <button id="export-pdf-btn" class="btn btn-primary">
+          <button id="export-pdf-btn" class="btn btn-primary" aria-label="Cetak laporan slip insentif PDF">
             <i data-lucide="file-down"></i> Cetak Laporan / PDF
           </button>
         </div>
       </div>
 
       <!-- Table Container -->
-      <div class="table-container">
+      <div class="table-container" role="region" aria-label="Tabel absensi karyawan" tabindex="0">
         <table class="attendance-table" id="attendance-table">
           <thead>
             <tr>
@@ -183,11 +186,11 @@
   </div>
 
   <!-- Settings Modal (GAS Configuration) -->
-  <div id="settings-modal" class="modal-overlay">
+  <div id="settings-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
     <div class="modal-card">
       <div class="modal-header">
-        <h2><i data-lucide="settings"></i> Pengaturan Google Sheets API</h2>
-        <button class="modal-close-btn" onclick="closeSettingsModal()">
+        <h2 id="settings-modal-title"><i data-lucide="settings"></i> Pengaturan Google Sheets API</h2>
+        <button class="modal-close-btn" onclick="closeSettingsModal()" aria-label="Tutup pengaturan">
           <i data-lucide="x"></i>
         </button>
       </div>
@@ -196,8 +199,8 @@
         
         <div class="input-group">
           <label for="gas-url-input">Google Apps Script Web App URL</label>
-          <input type="url" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec">
-          <p class="input-help">Masukkan URL Web App yang Anda dapatkan saat melakukan deploy di Apps Script Google Sheets Anda.</p>
+          <input type="url" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec" aria-describedby="gas-url-help">
+          <p class="input-help" id="gas-url-help">Masukkan URL Web App yang Anda dapatkan saat melakukan deploy di Apps Script Google Sheets Anda.</p>
         </div>
 
         <div class="settings-actions">
@@ -212,11 +215,11 @@
   </div>
 
   <!-- Print Slip Template (Hidden in Normal View) -->
-  <div id="print-slip-template" class="print-only">
+  <div id="print-slip-template" class="print-only" aria-hidden="true">
     <!-- Rendered dynamically during printing -->
   </div>
 
-  <!-- Custom JS -->
-  <script src="app.js"></script>
+  <!-- Custom JS (defer for faster page render) -->
+  <script src="app.js" defer></script>
 </body>
 </html>

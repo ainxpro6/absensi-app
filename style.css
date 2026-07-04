@@ -489,6 +489,17 @@ h1, h2, h3, h4, h5, h6 {
   transform: none;
 }
 
+/* Sync button pulse animation when there are pending changes */
+.btn-success.has-changes {
+  animation: pulse-btn 2s infinite;
+}
+
+@keyframes pulse-btn {
+  0% { box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 4px 20px rgba(16, 185, 129, 0.5); }
+  100% { box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2); }
+}
+
 .badge {
   background: #ffffff;
   color: #10b981;
@@ -545,27 +556,27 @@ body.dark-theme .badge {
 }
 
 .attendance-table th:first-child {
-  background-color: var(--bg-tertiary) !important;
+  background-color: var(--bg-tertiary);
   z-index: 3;
 }
 
-/* Ensure background color overrides on hover and row states */
+/* Row hover — use CSS variables for proper sticky column bg */
 .attendance-table tbody tr:hover td {
-  background-color: var(--bg-tertiary) !important;
+  background-color: var(--bg-tertiary);
 }
 
 tr.full-attendance td:first-child {
-  background-color: #f6fdfa !important;
+  background-color: #f6fdfa;
 }
 body.dark-theme tr.full-attendance td:first-child {
-  background-color: #101c18 !important;
+  background-color: #101c18;
 }
 
 tr.full-absent td:first-child {
-  background-color: #fdf6f6 !important;
+  background-color: #fdf6f6;
 }
 body.dark-theme tr.full-absent td:first-child {
-  background-color: #241414 !important;
+  background-color: #241414;
 }
 
 .attendance-table tbody tr {
@@ -612,16 +623,30 @@ body.dark-theme tr.full-absent td:first-child {
   cursor: pointer;
   position: relative;
   transition: all var(--transition-fast);
+  will-change: transform, background-color;
 }
 
 .custom-checkbox:hover {
   border-color: var(--danger);
+  transform: scale(1.15);
+}
+
+.custom-checkbox:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Checked State - Red Checkmark (True = Absen) */
 .custom-checkbox.checked {
   background-color: var(--danger-light);
   border-color: var(--danger);
+  animation: checkbox-pop 0.2s ease-out;
+}
+
+@keyframes checkbox-pop {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
 }
 
 .custom-checkbox.checked::after {
@@ -650,17 +675,28 @@ tr.full-absent {
 }
 
 tr.full-absent td {
-  color: var(--text-muted) !important;
+  color: var(--text-muted);
 }
 
 tr.full-absent td.col-name {
   text-decoration: line-through;
 }
 
+/* Stat Value Pulse Animation */
+.stat-pulse {
+  animation: stat-pulse-anim 0.4s ease-out;
+}
+
+@keyframes stat-pulse-anim {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.05); color: var(--primary); }
+  100% { transform: scale(1); }
+}
+
 /* Loading & Spinner State */
 .loading-state {
   text-align: center;
-  padding: 4rem !important;
+  padding: 4rem;
 }
 
 .spinner {
@@ -678,7 +714,165 @@ tr.full-absent td.col-name {
   100% { transform: rotate(360deg); }
 }
 
-/* Modal Overlay Styling */
+/* ==================== TOAST NOTIFICATION SYSTEM ==================== */
+
+#toast-container {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+  max-width: 400px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  transform: translateX(120%);
+  opacity: 0;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.toast.toast-visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  flex-grow: 1;
+  line-height: 1.4;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition-fast);
+}
+
+.toast-close:hover {
+  color: var(--text-primary);
+}
+
+/* Toast type variations */
+.toast-success {
+  border-left: 4px solid var(--success);
+}
+.toast-success .toast-icon {
+  color: var(--success);
+}
+
+.toast-error {
+  border-left: 4px solid var(--danger);
+}
+.toast-error .toast-icon {
+  color: var(--danger);
+}
+
+.toast-warning {
+  border-left: 4px solid var(--warning);
+}
+.toast-warning .toast-icon {
+  color: var(--warning);
+}
+
+.toast-info {
+  border-left: 4px solid var(--info);
+}
+.toast-info .toast-icon {
+  color: var(--info);
+}
+
+/* ==================== CONFIRM DIALOG ==================== */
+
+.confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--transition-normal);
+  z-index: 10001;
+}
+
+.confirm-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.confirm-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  max-width: 420px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+  padding: 1.75rem;
+  transform: scale(0.95);
+  transition: transform var(--transition-normal);
+}
+
+.confirm-overlay.active .confirm-card {
+  transform: scale(1);
+}
+
+.confirm-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  color: var(--warning);
+}
+
+.confirm-header h3 {
+  color: var(--text-primary);
+  font-size: 1.15rem;
+}
+
+.confirm-message {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* ==================== MODAL OVERLAY ==================== */
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -800,7 +994,8 @@ tr.full-absent td.col-name {
   padding: 1rem 0;
 }
 
-/* Print Only Stylesheet overrides */
+/* ==================== PRINT STYLESHEET ==================== */
+
 @media print {
   body {
     background: #ffffff !important;
@@ -810,10 +1005,12 @@ tr.full-absent td.col-name {
   
   .app-container,
   .modal-overlay,
+  .confirm-overlay,
   .workspace-header,
   .app-header,
   .stats-grid,
-  .app-footer-info {
+  .app-footer-info,
+  #toast-container {
     display: none !important;
   }
   
@@ -843,6 +1040,12 @@ tr.full-absent td.col-name {
     font-size: 1.5rem;
     margin-bottom: 0.25rem;
   }
+
+  .print-slip-header .print-date {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+  }
   
   .print-slip-row {
     display: flex;
@@ -859,12 +1062,32 @@ tr.full-absent td.col-name {
     font-size: 1.1rem;
     margin-top: 1rem;
   }
+
+  .print-slip-signatures {
+    margin-top: 3rem;
+    display: flex;
+    justify-content: space-between;
+    text-align: center;
+    font-size: 0.8rem;
+  }
+
+  .signature-line {
+    margin-top: 3rem;
+    border-top: 1px solid #000;
+    width: 150px;
+  }
+
+  .print-slip-signatures p {
+    margin-top: 0.25rem;
+  }
 }
+
 .print-only {
   display: none;
 }
 
-/* Mobile Responsive Adjustments */
+/* ==================== MOBILE RESPONSIVE ==================== */
+
 @media (max-width: 768px) {
   body {
     padding: 0.75rem;
@@ -912,6 +1135,14 @@ tr.full-absent td.col-name {
   .workspace-actions .btn {
     width: 100%;
     justify-content: center;
+  }
+
+  #toast-container {
+    top: auto;
+    bottom: 1rem;
+    right: 0.75rem;
+    left: 0.75rem;
+    max-width: none;
   }
 }
 
