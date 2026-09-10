@@ -44,46 +44,30 @@ export const CalculationTransparency: React.FC<CalculationTransparencyProps> = (
             <span className="step-val">{formatRupiah(result.baseShare)} / orang</span>
           </div>
 
-          {/* Step 2: Pool Pengalihan */}
+          {/* Step 2: Bagian Peserta Absen */}
           <div className="step-card">
             <div className="step-left">
               <span className="step-num">2</span>
               <div>
-                <strong className="font-label-md text-on-surface">Pool Dana Pengalihan:</strong>
+                <strong className="font-label-md text-on-surface">Bagian Peserta Absen (≥1 Hari):</strong>
                 <p className="step-formula">
-                  {formatRupiah(result.baseShare)} × {result.ineligiblePeople} orang yang absen
+                  {result.ineligiblePeople} orang memiliki absen & mendapat Rp0 (B27 = Rp0)
                 </p>
               </div>
             </div>
-            <span className="step-val">{formatRupiah(result.redistributedPool)}</span>
+            <span className="step-val">Rp0</span>
           </div>
 
-          {/* Step 3: Bonus Peserta Full */}
+          {/* Step 3: Bagian Akhir per Peserta Hadir Penuh */}
           <div className="step-card">
             <div className="step-left">
               <span className="step-num">3</span>
               <div>
-                <strong className="font-label-md text-on-surface">Bonus per Peserta Hadir Penuh:</strong>
+                <strong className="font-label-md text-on-surface">Bagian Akhir per Peserta Hadir:</strong>
                 <p className="step-formula">
                   {result.fullAttendees > 0
-                    ? `floor((${formatRupiah(result.redistributedPool)} ÷ ${result.fullAttendees}) / 5.000) × 5.000`
-                    : 'Tidak ada penerima hadir penuh'}
-                </p>
-              </div>
-            </div>
-            <span className="step-val" style={{ color: 'var(--tertiary)' }}>
-              +{formatRupiah(result.bonusPerFullAttendee)} / orang
-            </span>
-          </div>
-
-          {/* Step 4: Total Diterima / Orang */}
-          <div className="step-card">
-            <div className="step-left">
-              <span className="step-num">4</span>
-              <div>
-                <strong className="font-label-md text-on-surface">Total Diterima Peserta Full:</strong>
-                <p className="step-formula">
-                  {formatRupiah(result.baseShare)} (Dasar) + {formatRupiah(result.bonusPerFullAttendee)} (Bonus)
+                    ? `floor(((${formatRupiah(result.totalMoney)} - Rp0) ÷ ${result.fullAttendees}) / 5.000) × 5.000`
+                    : 'Tidak ada peserta hadir penuh'}
                 </p>
               </div>
             </div>
@@ -92,12 +76,28 @@ export const CalculationTransparency: React.FC<CalculationTransparencyProps> = (
             </span>
           </div>
 
+          {/* Step 4: Total Dana Tersalurkan */}
+          <div className="step-card">
+            <div className="step-left">
+              <span className="step-num">4</span>
+              <div>
+                <strong className="font-label-md text-on-surface">Total Dana Tersalurkan:</strong>
+                <p className="step-formula">
+                  {result.fullAttendees} orang hadir × {formatRupiah(result.paymentPerFullAttendee)}
+                </p>
+              </div>
+            </div>
+            <span className="step-val" style={{ color: 'var(--tertiary)' }}>
+              {formatRupiah(result.distributedTotal)}
+            </span>
+          </div>
+
           {/* Step 5: Sisa Dana */}
           <div className="step-card">
             <div className="step-left">
               <span className="step-num">5</span>
               <div>
-                <strong className="font-label-md text-on-surface">Sisa Uang Tidak Terbagi:</strong>
+                <strong className="font-label-md text-on-surface">Sisa Dana Tidak Terbagi:</strong>
                 <p className="step-formula">
                   {formatRupiah(result.totalMoney)} (Total) - {formatRupiah(result.distributedTotal)} (Tersalurkan)
                 </p>

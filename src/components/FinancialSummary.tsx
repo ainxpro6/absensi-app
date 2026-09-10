@@ -156,7 +156,9 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
             {formatRupiah(result.paymentPerFullAttendee)}
           </div>
           <p className="highlight-desc">
-            {formatRupiah(result.baseShare)} + {formatRupiah(result.bonusPerFullAttendee)} (Bonus)
+            {result.bonusPerFullAttendee > 0
+              ? `${formatRupiah(result.baseShare)} + ${formatRupiah(result.bonusPerFullAttendee)} (Penyesuaian)`
+              : `${formatRupiah(result.baseShare)} (Bagian Dasar)`}
           </p>
         </div>
 

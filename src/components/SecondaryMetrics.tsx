@@ -29,7 +29,7 @@ export const SecondaryMetrics: React.FC<SecondaryMetricsProps> = ({ result }) =>
       </div>
 
       <div className="metric-column">
-        <span className="metric-col-label">Bonus Dialihkan / Org</span>
+        <span className="metric-col-label">Penyesuaian / Org Hadir</span>
         <span className="metric-col-value" style={{ color: 'var(--tertiary)' }}>
           +{formatRupiah(result.bonusPerFullAttendee)}
         </span>

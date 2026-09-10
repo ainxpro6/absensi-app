@@ -221,7 +221,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
               <span className="breakdown-item-value font-numeric">{formatRupiah(calculation.baseShare)}</span>
             </div>
             <div className="breakdown-row highlight-bonus">
-              <span className="breakdown-item-name">Total Bonus Dialihkan</span>
+              <span className="breakdown-item-name">Total Penyesuaian Hadir</span>
               <span className="breakdown-item-value value-success font-numeric">
                 +{formatRupiah(calculation.redistributedPool)}
               </span>
@@ -238,7 +238,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
             </div>
           </div>
 
-          {/* Rincian per penerima hak jika ada bonus */}
+          {/* Rincian per penerima hak jika ada penyesuaian */}
           {calculation.fullAttendees > 0 && (
             <div className="rekap-payout-box">
               <div className="payout-box-header">
@@ -250,7 +250,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
               <div className="payout-box-math font-numeric">
                 <span>Bagian Dasar: {formatRupiah(calculation.baseShare)}</span>
                 {calculation.bonusPerFullAttendee > 0 && (
-                  <span> + Bonus Dialihkan: {formatRupiah(calculation.bonusPerFullAttendee)}</span>
+                  <span> + Penyesuaian: {formatRupiah(calculation.bonusPerFullAttendee)}</span>
                 )}
               </div>
             </div>

@@ -18,8 +18,47 @@ function createTestPerson(name: string, absentIndices: number[] = []): Person {
   };
 }
 
-describe('Audit Kalkulasi Sesuai Skenario & PRD Acceptance Criteria', () => {
-  it('Scenario A: 5 orang, Rp1.000.000, semua hadir => Rp200.000/orang, sisa Rp0', () => {
+describe('Audit Kalkulasi Sesuai Rumus Spreadsheet', () => {
+  it('Scenario A (CONTOH WAJIB): 22 peserta, Rp4.450.000, 7 absen, 15 hadir penuh => Rp295.000 / peserta hadir, Rp0 / absen, sisa Rp25.000', () => {
+    // Buat 22 peserta: 7 absen dan 15 hadir penuh
+    const people: Person[] = [];
+    for (let i = 1; i <= 7; i++) {
+      people.push(createTestPerson(`Absen-${i}`, [0])); // absen hari pertama
+    }
+    for (let i = 1; i <= 15; i++) {
+      people.push(createTestPerson(`Hadir-${i}`, [])); // hadir penuh
+    }
+
+    const result = calculateDistribution(4450000, people);
+
+    expect(result.totalPeople).toBe(22);
+    expect(result.fullAttendees).toBe(15);
+    expect(result.ineligiblePeople).toBe(7);
+    // Bagian Dasar = FLOOR(4.450.000 / 22; 5000) = Rp200.000
+    expect(result.baseShare).toBe(200000);
+    // Total Diterima Hadir Penuh = FLOOR(4.450.000 / 15; 5000) = Rp295.000
+    expect(result.paymentPerFullAttendee).toBe(295000);
+    // Penyesuaian = 295.000 - 200.000 = 95.000
+    expect(result.bonusPerFullAttendee).toBe(95000);
+    // Total Tersalurkan = 15 * 295.000 = 4.425.000
+    expect(result.distributedTotal).toBe(4425000);
+    // Sisa Dana = 4.450.000 - 4.425.000 = Rp25.000
+    expect(result.remainder).toBe(25000);
+    // Invariant: Total Dibagikan + Remainder = Total Dana
+    expect(result.distributedTotal + result.remainder).toBe(4450000);
+
+    result.people.forEach((p) => {
+      if (p.name.startsWith('Hadir')) {
+        expect(p.eligible).toBe(true);
+        expect(p.payment).toBe(295000);
+      } else {
+        expect(p.eligible).toBe(false);
+        expect(p.payment).toBe(0);
+      }
+    });
+  });
+
+  it('Scenario B: 5 peserta, Rp1.000.000, semua hadir => Rp200.000 / peserta, sisa Rp0', () => {
     const people = ['Andi', 'Budi', 'Cici', 'Dedi', 'Eko'].map((n) =>
       createTestPerson(n, [])
     );
@@ -29,11 +68,11 @@ describe('Audit Kalkulasi Sesuai Skenario & PRD Acceptance Criteria', () => {
     expect(result.fullAttendees).toBe(5);
     expect(result.ineligiblePeople).toBe(0);
     expect(result.baseShare).toBe(200000);
-    expect(result.redistributedPool).toBe(0);
-    expect(result.bonusPerFullAttendee).toBe(0);
     expect(result.paymentPerFullAttendee).toBe(200000);
+    expect(result.bonusPerFullAttendee).toBe(0);
     expect(result.distributedTotal).toBe(1000000);
     expect(result.remainder).toBe(0);
+    expect(result.distributedTotal + result.remainder).toBe(1000000);
 
     result.people.forEach((p) => {
       expect(p.payment).toBe(200000);
@@ -41,40 +80,7 @@ describe('Audit Kalkulasi Sesuai Skenario & PRD Acceptance Criteria', () => {
     });
   });
 
-  it('Scenario B: 5 orang, Rp1.000.000, Andi absen 1 hari => Andi Rp0, 4 orang lain Rp250.000, sisa Rp0', () => {
-    const people = [
-      createTestPerson('Andi', [2]), // Andi absen hari ke-3 (03/09)
-      createTestPerson('Budi', []),
-      createTestPerson('Cici', []),
-      createTestPerson('Dedi', []),
-      createTestPerson('Eko', []),
-    ];
-    const result = calculateDistribution(1000000, people);
-
-    expect(result.fullAttendees).toBe(4);
-    expect(result.ineligiblePeople).toBe(1);
-    // Detail breakdown matematis
-    expect(result.baseShare).toBe(200000); // Rp1.000.000 / 5
-    expect(result.redistributedPool).toBe(200000); // Hak Andi yang dialihkan
-    expect(result.bonusPerFullAttendee).toBe(50000); // Rp200.000 / 4
-    expect(result.paymentPerFullAttendee).toBe(250000); // Rp200.000 + Rp50.000
-    expect(result.distributedTotal).toBe(1000000);
-    expect(result.remainder).toBe(0);
-
-    const andi = result.people.find((p) => p.name === 'Andi')!;
-    expect(andi.absentCount).toBe(1);
-    expect(andi.presentCount).toBe(9);
-    expect(andi.eligible).toBe(false);
-    expect(andi.payment).toBe(0); // 9/10 hadir = Rp0 (tidak ada pembayaran proporsional)
-
-    const others = result.people.filter((p) => p.name !== 'Andi');
-    others.forEach((p) => {
-      expect(p.eligible).toBe(true);
-      expect(p.payment).toBe(250000);
-    });
-  });
-
-  it('Scenario C: 7 orang, Rp1.000.000, 2 orang absen => 5 orang x Rp195.000, 2 orang x Rp0, sisa Rp25.000', () => {
+  it('Scenario C (Generic Combination): 7 peserta, Rp1.000.000, 2 absen, 5 hadir => Rp200.000 / peserta, sisa Rp0', () => {
     const people = [
       createTestPerson('A1', [0]),
       createTestPerson('A2', [5, 6]),
@@ -89,28 +95,51 @@ describe('Audit Kalkulasi Sesuai Skenario & PRD Acceptance Criteria', () => {
     expect(result.totalPeople).toBe(7);
     expect(result.fullAttendees).toBe(5);
     expect(result.ineligiblePeople).toBe(2);
-    // 1.000.000 / 7 = 142.857,14 -> floorTo5000 = 140.000
+    // Bagian Dasar = FLOOR(1.000.000 / 7; 5000) = 140.000
     expect(result.baseShare).toBe(140000);
-    // 140.000 * 2 = 280.000
-    expect(result.redistributedPool).toBe(280000);
-    // 280.000 / 5 = 56.000 -> floorTo5000 = 55.000
-    expect(result.bonusPerFullAttendee).toBe(55000);
-    // 140.000 + 55.000 = 195.000
-    expect(result.paymentPerFullAttendee).toBe(195000);
-    // 195.000 * 5 = 975.000
-    expect(result.distributedTotal).toBe(975000);
-    // 1.000.000 - 975.000 = 25.000 (Sisa uang valid dan tidak dipaksakan habis)
-    expect(result.remainder).toBe(25000);
+    // Total Diterima = FLOOR(1.000.000 / 5; 5000) = 200.000
+    expect(result.paymentPerFullAttendee).toBe(200000);
+    // Penyesuaian = 200.000 - 140.000 = 60.000
+    expect(result.bonusPerFullAttendee).toBe(60000);
+    // Total Dibagikan = 5 * 200.000 = 1.000.000
+    expect(result.distributedTotal).toBe(1000000);
+    expect(result.remainder).toBe(0);
+    expect(result.distributedTotal + result.remainder).toBe(1000000);
 
     result.people.forEach((p) => {
       if (p.name.startsWith('F')) {
-        expect(p.payment).toBe(195000);
+        expect(p.payment).toBe(200000);
         expect(p.eligible).toBe(true);
       } else {
         expect(p.payment).toBe(0);
         expect(p.eligible).toBe(false);
       }
     });
+  });
+
+  it('Scenario D (Generic Combination dengan Sisa): 18 peserta, Rp5.000.000, 4 absen, 14 hadir => Rp355.000 / peserta, sisa Rp30.000', () => {
+    const people: Person[] = [];
+    for (let i = 1; i <= 4; i++) {
+      people.push(createTestPerson(`Absen-${i}`, [i]));
+    }
+    for (let i = 1; i <= 14; i++) {
+      people.push(createTestPerson(`Hadir-${i}`, []));
+    }
+
+    const result = calculateDistribution(5000000, people);
+
+    expect(result.totalPeople).toBe(18);
+    expect(result.fullAttendees).toBe(14);
+    expect(result.ineligiblePeople).toBe(4);
+    // FLOOR(5.000.000 / 18; 5000) = 275.000
+    expect(result.baseShare).toBe(275000);
+    // FLOOR(5.000.000 / 14; 5000) = 355.000
+    expect(result.paymentPerFullAttendee).toBe(355000);
+    expect(result.bonusPerFullAttendee).toBe(80000);
+    // 14 * 355.000 = 4.970.000
+    expect(result.distributedTotal).toBe(4970000);
+    expect(result.remainder).toBe(30000);
+    expect(result.distributedTotal + result.remainder).toBe(5000000);
   });
 
   it('Edge Case 1: 0 orang => safe empty result tanpa error atau NaN', () => {

@@ -34,11 +34,11 @@ export function calculateDistribution(
     };
   }
 
-  // 1. Pembagian awal (Base Share) dibagi seluruh orang terdaftar (N)
-  const rawBaseShare = safeTotalMoney / totalPeople;
-  const baseShare = floorTo5000(rawBaseShare);
+  // 1. Pembagian awal (Bagian Dasar) = FLOOR($B$25/$K$25; 5000)
+  const baseShare = floorTo5000(safeTotalMoney / totalPeople);
 
   // 2. Evaluasi absensi per orang
+  // Peserta yang memiliki absen >= 1 hari mendapatkan Rp0 (N >= 1 => Rp0)
   const evaluatedPeople = people.map((person) => {
     const totalDays = person.attendance.length || PERIOD_DAYS;
     const absentCount = person.attendance.filter((day) => day.absent).length;
@@ -54,19 +54,22 @@ export function calculateDistribution(
     };
   });
 
-  const fullAttendees = evaluatedPeople.filter((p) => p.eligible).length;
+  const fullAttendees = evaluatedPeople.filter((p) => p.eligible).length; // B28 = COUNTIF(N2:N23; 0)
   const ineligiblePeople = totalPeople - fullAttendees;
 
-  let redistributedPool = 0;
-  let bonusPerFullAttendee = 0;
+  // 3. Bagian Peserta Absen (B27 = SUM(P2:P23)) = Rp0 (setiap peserta absen mendapat Rp0)
+  const totalAbsentShare = 0;
+
+  // 4. Total Diterima Peserta Hadir Penuh = FLOOR(($B$25 - $B$27) / $B$28; 5000)
   let paymentPerFullAttendee = 0;
+  let bonusPerFullAttendee = 0;
+  let redistributedPool = 0;
   let distributedTotal = 0;
 
   if (fullAttendees > 0) {
-    // Dana dari orang yang tidak hadir dialihkan ke hadir full
-    redistributedPool = baseShare * ineligiblePeople;
-    bonusPerFullAttendee = floorTo5000(redistributedPool / fullAttendees);
-    paymentPerFullAttendee = baseShare + bonusPerFullAttendee;
+    paymentPerFullAttendee = floorTo5000((safeTotalMoney - totalAbsentShare) / fullAttendees);
+    bonusPerFullAttendee = Math.max(0, paymentPerFullAttendee - baseShare);
+    redistributedPool = bonusPerFullAttendee * fullAttendees;
     distributedTotal = paymentPerFullAttendee * fullAttendees;
   }
 
