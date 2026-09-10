@@ -53,6 +53,11 @@ npm test
 npm run build
 ```
 
+### 4. Deploy ke GitHub Pages
+```powershell
+npm run deploy
+```
+
 ---
 
 ## Struktur Kode
