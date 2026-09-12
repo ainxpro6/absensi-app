@@ -5,14 +5,15 @@ import type {
   DistributionHistoryParticipant,
   ParticipantStatus,
 } from '../types';
+import { getPeriodInfo } from '../lib/dates';
 
 export const HISTORY_STORAGE_KEY = 'bagiKas.history';
 
 /**
  * Helper untuk menentukan status kehadiran peserta dalam format deskriptif.
  */
-export function getParticipantStatus(presentCount: number): ParticipantStatus {
-  if (presentCount === 10) return 'Hadir Penuh';
+export function getParticipantStatus(presentCount: number, totalDays: number = 10): ParticipantStatus {
+  if (presentCount === totalDays) return 'Hadir Penuh';
   if (presentCount > 0) return 'Absen Sebagian';
   return 'Tidak Dapat Bagian';
 }
@@ -26,23 +27,23 @@ export function createDistributionSnapshot(
   calculation: CalculationResult,
   today: Date = new Date()
 ): DistributionHistory {
+  const period = getPeriodInfo(today);
   const firstPerson = state.people[0];
   const firstDay = firstPerson?.attendance[0];
   const lastDay = firstPerson?.attendance[firstPerson.attendance.length - 1];
 
-  const year = today.getFullYear();
-  const monthStr = String(today.getMonth() + 1).padStart(2, '0');
-
-  const periodStart = firstDay?.date || `${year}-${monthStr}-01`;
-  const periodEnd = lastDay?.date || `${year}-${monthStr}-10`;
-  const startLabel = firstDay?.dayLabel || `01/${monthStr}`;
-  const endLabel = lastDay?.dayLabel || `10/${monthStr}`;
+  const periodStart = firstDay?.date || period.startDate;
+  const periodEnd = lastDay?.date || period.endDate;
+  const startLabel = firstDay?.dayLabel || period.startLabel;
+  const endLabel = lastDay?.dayLabel || period.endLabel;
   const periodLabel = `${startLabel} – ${endLabel}`;
+  const totalDays = firstPerson?.attendance.length || period.totalDays;
 
   const participants: DistributionHistoryParticipant[] = state.people.map((person) => {
+    const personTotalDays = person.attendance.length || totalDays;
     const personRes = calculation.people.find((p) => p.id === person.id) || {
       absentCount: person.attendance.filter((d) => d.absent).length,
-      presentCount: 10 - person.attendance.filter((d) => d.absent).length,
+      presentCount: personTotalDays - person.attendance.filter((d) => d.absent).length,
       eligible: person.attendance.every((d) => !d.absent),
       payment: 0,
     };
@@ -57,7 +58,7 @@ export function createDistributionSnapshot(
       baseShare: isEligible ? calculation.baseShare : 0,
       transferredBonus: isEligible ? calculation.bonusPerFullAttendee : 0,
       received: personRes.payment,
-      status: getParticipantStatus(personRes.presentCount),
+      status: getParticipantStatus(personRes.presentCount, personTotalDays),
     };
   });
 
@@ -66,7 +67,7 @@ export function createDistributionSnapshot(
     periodStart,
     periodEnd,
     periodLabel,
-    totalDays: 10,
+    totalDays,
     totalFund: calculation.totalMoney,
     totalParticipants: calculation.totalPeople,
     fullAttendance: calculation.fullAttendees,

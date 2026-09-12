@@ -136,7 +136,7 @@ export const HistoryDetailModal: React.FC<HistoryDetailModalProps> = ({
                       <td style={{ textAlign: 'center', color: 'var(--on-surface-variant)' }}>{pIdx + 1}</td>
                       <td className="font-semibold">{p.name}</td>
                       <td style={{ textAlign: 'center' }} className="font-numeric">
-                        {p.presentDays}/10 hari
+                        {p.presentDays}/{history.totalDays || 10} hari
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {p.status === 'Hadir Penuh' ? (

@@ -32,7 +32,7 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
     setNewName('');
   };
 
-  const dayLabels = people.length > 0 && people[0].attendance.length === 10
+  const dayLabels = people.length > 0
     ? people[0].attendance.map((d) => d.dayLabel)
     : [];
 
@@ -42,7 +42,7 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
       <div className="workstation-header">
         <div>
           <h2 className="font-headline-md text-on-surface">
-            Daftar Absensi Peserta (10 Hari Kerja)
+            Daftar Absensi Peserta ({dayLabels.length > 0 ? `${dayLabels.length} Hari Kerja` : 'Periode Berjalan'})
           </h2>
           <p className="font-body-sm text-on-surface-variant" style={{ marginTop: '0.2rem' }}>
             Perhatian: Checkbox tidak dicentang (<span className="note-tag-present">Kosong</span>) = Hadir. Checkbox dicentang (<span className="note-tag-absent">Merah/Silang</span>) = <strong className="note-tag-absent">TIDAK HADIR</strong>.
@@ -194,7 +194,7 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
                         <span style={{ fontWeight: 700, color: isEligible ? 'var(--primary)' : 'var(--error)' }}>
                           {personRes.presentCount}
                         </span>
-                        <span style={{ color: 'var(--on-surface-variant)' }}>/10</span>
+                        <span style={{ color: 'var(--on-surface-variant)' }}>/{person.attendance.length}</span>
                       </td>
 
                       {/* Status Kelayakan Pill Badge */}
@@ -202,7 +202,7 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
                         {isEligible ? (
                           <span className="status-badge-pill badge-full-eligible">
                             <CheckCircle2 size={14} />
-                            <span>Hadir Penuh (10/10)</span>
+                            <span>Hadir Penuh ({person.attendance.length}/{person.attendance.length})</span>
                           </span>
                         ) : (
                           <span className="status-badge-pill badge-absent-ineligible">
@@ -248,8 +248,8 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
                   <td colSpan={2} style={{ fontWeight: 700, color: 'var(--on-surface)' }}>
                     Ringkasan Distribusi Total:
                   </td>
-                  <td colSpan={10} style={{ textAlign: 'center', color: 'var(--on-surface-variant)', fontSize: '11px' }}>
-                    10 Hari Penuh
+                  <td colSpan={dayLabels.length || 1} style={{ textAlign: 'center', color: 'var(--on-surface-variant)', fontSize: '11px' }}>
+                    {dayLabels.length} Hari Periode
                   </td>
                   <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--primary)', lineHeight: 1.3 }}>
                     <span>{result.fullAttendees} Peserta</span>

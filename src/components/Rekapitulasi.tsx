@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import type { AppState, CalculationResult } from '../types';
 import { formatRupiah } from '../lib/currency';
 import { getParticipantStatus } from '../services/historyStorage';
+import { getPeriodInfo } from '../lib/dates';
 import {
   Printer,
   BookmarkPlus,
@@ -29,7 +30,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
   onSaveToHistory,
   onNavigateToHistory,
 }) => {
-  // Label periode dinamis (contoh: 01/09 – 10/09)
+  // Label periode dinamis (contoh: 11/09 – 20/09)
   const periodLabel = useMemo(() => {
     const firstPerson = state.people[0];
     const start = firstPerson?.attendance[0]?.dayLabel;
@@ -37,8 +38,8 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
     if (start && end) {
       return `${start} – ${end}`;
     }
-    const monthStr = String(today.getMonth() + 1).padStart(2, '0');
-    return `01/${monthStr} – 10/${monthStr}`;
+    const period = getPeriodInfo(today);
+    return `${period.startLabel} – ${period.endLabel}`;
   }, [state.people, today]);
 
   // Evaluasi metrik kehadiran peserta
@@ -48,8 +49,9 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
     let zeroCount = 0;
 
     state.people.forEach((p) => {
+      const totalDays = p.attendance.length;
       const presentCount = p.attendance.filter((d) => !d.absent).length;
-      if (presentCount === 10) {
+      if (presentCount === totalDays && totalDays > 0) {
         fullCount += 1;
       } else if (presentCount > 0) {
         partialCount += 1;
@@ -265,7 +267,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
             </div>
             <div>
               <h2 className="card-title-sm">Rekap Kehadiran</h2>
-              <p className="card-desc-sm">Komposisi absensi seluruh peserta selama 10 hari</p>
+              <p className="card-desc-sm">Komposisi absensi seluruh peserta selama periode berjalan</p>
             </div>
           </div>
 
@@ -329,7 +331,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
           <div className="attendance-note-box">
             <AlertCircle size={14} className="text-muted flex-shrink-0" />
             <span>
-              Aturan: Hanya peserta dengan <strong>Hadir Penuh (10/10)</strong> yang berhak mendapatkan pembagian dana.
+              Aturan: Hanya peserta dengan <strong>Hadir Penuh ({state.people[0]?.attendance.length || 10}/{state.people[0]?.attendance.length || 10})</strong> yang berhak mendapatkan pembagian dana.
             </span>
           </div>
         </div>
@@ -362,15 +364,16 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
             </thead>
             <tbody>
               {state.people.map((person, idx) => {
+                const personTotalDays = person.attendance.length;
                 const personRes = calculation.people.find((p) => p.id === person.id) || {
                   absentCount: person.attendance.filter((d) => d.absent).length,
-                  presentCount: 10 - person.attendance.filter((d) => d.absent).length,
+                  presentCount: personTotalDays - person.attendance.filter((d) => d.absent).length,
                   eligible: person.attendance.every((d) => !d.absent),
                   payment: 0,
                 };
 
                 const isEligible = personRes.eligible;
-                const status = getParticipantStatus(personRes.presentCount);
+                const status = getParticipantStatus(personRes.presentCount, personTotalDays);
                 const baseShareAmount = isEligible ? calculation.baseShare : 0;
                 const bonusAmount = isEligible ? calculation.bonusPerFullAttendee : 0;
 
@@ -379,7 +382,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
                     <td style={{ textAlign: 'center', color: 'var(--on-surface-variant)' }}>{idx + 1}</td>
                     <td className="font-semibold text-primary-name">{person.name}</td>
                     <td style={{ textAlign: 'center' }}>
-                      <span className="font-numeric font-bold">{personRes.presentCount}/10</span>{' '}
+                      <span className="font-numeric font-bold">{personRes.presentCount}/{personTotalDays}</span>{' '}
                       <span style={{ fontSize: '11px', color: 'var(--on-surface-variant)' }}>hari</span>
                     </td>
                     <td style={{ textAlign: 'center' }}>

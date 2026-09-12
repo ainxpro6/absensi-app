@@ -14,7 +14,7 @@ export type Person = {
 };
 
 export type AppState = {
-  periodKey: string; // Format: "YYYY-MM" (misal: "2026-09")
+  periodKey: string; // Format: "YYYY-MM-PX" (misal: "2026-09-P2")
   totalMoney: number;
   people: Person[];
 };

@@ -160,4 +160,54 @@ describe('History Storage Service — Immutability, Persistence, & Deduplication
     expect(saveResult.success).toBe(true);
     expect(getHistoryList()).toHaveLength(1);
   });
+
+  it('7. Snapshot pada Periode 2 (11-20) dan Periode 3 (21-akhir bulan) merekam label dan totalDays yang sesuai', () => {
+    // Periode 2: 12 September 2026
+    const sep12 = new Date(2026, 8, 12);
+    const sepDays = generateCurrentPeriodDays(sep12);
+    const stateP2: AppState = {
+      periodKey: '2026-09-P2',
+      totalMoney: 1000000,
+      people: [
+        {
+          id: 'p-1',
+          name: 'Andi',
+          attendance: sepDays.map((d) => ({ ...d, absent: false })),
+        },
+      ],
+    };
+    const calcP2 = calculateDistribution(stateP2.totalMoney, stateP2.people);
+    const snapP2 = createDistributionSnapshot(stateP2, calcP2, sep12);
+
+    expect(snapP2.periodStart).toBe('2026-09-11');
+    expect(snapP2.periodEnd).toBe('2026-09-20');
+    expect(snapP2.periodLabel).toBe('11/09 – 20/09');
+    expect(snapP2.totalDays).toBe(10);
+    expect(snapP2.participants[0].presentDays).toBe(10);
+    expect(snapP2.participants[0].status).toBe('Hadir Penuh');
+
+    // Periode 3: 25 Oktober 2026 (bulan 31 hari)
+    const oct25 = new Date(2026, 9, 25);
+    const octDays = generateCurrentPeriodDays(oct25);
+    const stateP3: AppState = {
+      periodKey: '2026-10-P3',
+      totalMoney: 1000000,
+      people: [
+        {
+          id: 'p-1',
+          name: 'Budi',
+          attendance: octDays.map((d) => ({ ...d, absent: false })),
+        },
+      ],
+    };
+    const calcP3 = calculateDistribution(stateP3.totalMoney, stateP3.people);
+    const snapP3 = createDistributionSnapshot(stateP3, calcP3, oct25);
+
+    expect(snapP3.periodStart).toBe('2026-10-21');
+    expect(snapP3.periodEnd).toBe('2026-10-31');
+    expect(snapP3.periodLabel).toBe('21/10 – 31/10');
+    expect(snapP3.totalDays).toBe(11);
+    expect(snapP3.participants[0].presentDays).toBe(11);
+    expect(snapP3.participants[0].status).toBe('Hadir Penuh');
+  });
 });

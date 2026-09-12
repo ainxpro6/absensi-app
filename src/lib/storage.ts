@@ -51,7 +51,7 @@ export function loadAppState(today: Date = new Date()): AppState {
       };
     });
 
-    // Cek apakah periode telah berganti (misal: disimpan di September 2026, dibuka di Oktober 2026)
+    // Cek apakah periode telah berganti (misal: dari P1 ke P2, atau antar bulan)
     if (parsed.periodKey !== currentPeriodKey) {
       // Periode baru: orang & uang tetap, absensi di-reset ke HADIR untuk periode baru
       const migratedState: AppState = {
@@ -70,10 +70,18 @@ export function loadAppState(today: Date = new Date()): AppState {
     const restoredPeople: Person[] = validPeople.map((p, pIdx) => {
       const savedAttendance = rawPeople[pIdx]?.attendance;
       const attendance = currentDays.map((day, dIdx) => {
-        const savedDay = Array.isArray(savedAttendance) ? savedAttendance[dIdx] : undefined;
+        let savedAbsent = false;
+        if (Array.isArray(savedAttendance)) {
+          const matchByDate = savedAttendance.find((s: any) => s?.date === day.date);
+          if (matchByDate) {
+            savedAbsent = Boolean(matchByDate.absent);
+          } else if (savedAttendance[dIdx]) {
+            savedAbsent = Boolean(savedAttendance[dIdx]?.absent);
+          }
+        }
         return {
           ...day,
-          absent: Boolean(savedDay?.absent),
+          absent: savedAbsent,
         };
       });
       return {
